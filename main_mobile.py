@@ -27,49 +27,64 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Stile CSS personalizzato per adattamento mobile e tema scuro investigativo
+# Stile CSS personalizzato per la plancia mobile
 st.markdown("""
     <style>
     .stApp { background-color: #0d1117; color: #ffffff; }
     .sidebar .stSidebar { background-color: #161b22; }
     h1, h2, h3 { color: #FFD700 !important; }
-    .stButton>button { width: 100%; border-radius: 4px; font-weight: bold; }
+    .stButton>button { width: 100%; border-radius: 4px; font-weight: bold; background-color: #2d3748; color: #ffffff; border: 1px solid #4a5568; }
+    .stButton>button:hover { background-color: #00E676; color: #0d1117; border: 1px solid #00E676; }
     </style>
 """, unsafe_allow_html=True)
 
 PASSWORD_APPLICATIVO = "GdiF_117"
+DEFAULT_COST_INPUT_1M_EUR = 0.069
+DEFAULT_COST_OUTPUT_1M_EUR = 0.276
 
-# Gestione Autenticazione Sessione
+# Gestione Autenticazione con campo password ben visibile
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
 if not st.session_state.autenticato:
-    st.markdown("<h2 style='text-align: center;'>🔒 SISTEMA CRITTOGRAFATO - ACCESSO RISERVATO</h2>", unsafe_allow_html=True)
-    pwd_input = st.text_input("Inserisci la password di sblocco:", type="password")
-    if st.button("🔓 SBLOCCA TERMINALE"):
-        if pwd_input.strip() == PASSWORD_APPLICATIVO:
-            st.session_state.autenticato = True
-            st.rerun()
-        else:
-            st.error("❌ Password errata.")
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #FFD700;'>🔒 SISTEMA CRITTOGRAFATO - ACCESSO RISERVATO</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #8b949e;'>Inserire la password di sblocco per accedere alla plancia operativa:</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        pwd_input = st.text_input("Password:", type="password", label_visibility="collapsed", placeholder="Inserisci password...")
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔓 SBLOCCA TERMINALE"):
+            if pwd_input.strip() == PASSWORD_APPLICATIVO:
+                st.session_state.autenticato = True
+                st.rerun()
+            else:
+                st.error("❌ Password errata.")
     st.stop()
 
 # Inizializzazione Stati di Sessione
 if "storico_chat" not in st.session_state:
     st.session_state.storico_chat = []
+if "sess_token_in" not in st.session_state:
+    st.session_state.sess_token_in = 0
+if "sess_token_out" not in st.session_state:
+    st.session_state.sess_token_out = 0
+if "sess_costo_eur" not in st.session_state:
+    st.session_state.sess_costo_eur = 0.0
 
 # --- SIDEBAR OPERATIVA ---
 with st.sidebar:
     st.markdown("### 🛡️ Maresciallo AI [Mobile]")
     
-    api_key_input = st.text_input("Chiave API Google:", type="password", value=os.environ.get("GEMINI_API_KEY", ""))
-    
-    # Selezione Reparto
+    # Selezione Reparto (PEF / PG)
     modalita = st.selectbox(
         "🏢 Reparto Operativo:",
         options=["PEF", "PG"],
         format_func=lambda x: "🟡 Polizia Economico-Finanziaria (P.E.F.)" if x == "PEF" else "🔵 Polizia Giudiziaria (P.G.)"
     )
+    
+    api_key_input = st.text_input("Chiave API Google:", type="password", value=os.environ.get("GEMINI_API_KEY", ""))
     
     stile_interfaccia = st.selectbox(
         "💬 Stile Interfaccia:",
@@ -84,9 +99,25 @@ with st.sidebar:
         accept_multiple_files=True
     )
     
+    presenza_immagini = False
+    if uploaded_files:
+        for f in uploaded_files:
+            if f.name.split('.')[-1].lower() in ["jpg", "jpeg", "png"]:
+                presenza_immagini = True
+        if presenza_immagini:
+            st.warning("⚠️ Rilevate immagini/scansioni: l'elaborazione visiva (OCR) inciderà sui token.")
+
+    st.markdown("---")
+    st.markdown("### 💶 CONSUMI SESSIONE")
+    tot_token = st.session_state.sess_token_in + st.session_state.sess_token_out
+    st.info(f"• Token Elaborati: {tot_token:,}\n• Spesa Stimata: {st.session_state.sess_costo_eur:.4f} €")
+    
     st.markdown("---")
     if st.button("🔄 Nuova Indagine (Reset)"):
         st.session_state.storico_chat = []
+        st.session_state.sess_token_in = 0
+        st.session_state.sess_token_out = 0
+        st.session_state.sess_costo_eur = 0.0
         st.rerun()
 
 # --- CORPO PRINCIPALE CHAT ---
@@ -114,7 +145,6 @@ if prompt_utente:
     with st.chat_message("assistant"):
         with st.spinner("Elaborazione e riscontro in corso..."):
             try:
-                # Estrazione contenuti file caricati
                 testo_atti = ""
                 immagini = []
                 
@@ -150,7 +180,6 @@ if prompt_utente:
                 if testo_atti:
                     p_completo += f"\n\n[DOCUMENTI ALLEGATI]\n{testo_atti}"
 
-                # Configurazione Client e Prompt di Sistema
                 client = genai.Client(api_key=api_key_input)
                 
                 istruzione_stile = "Esponi con tono naturale, collaborativo e articolato, mantenendo elevata precisione tecnica."
@@ -210,7 +239,17 @@ if prompt_utente:
                     config=types.GenerateContentConfig(system_instruction=sys_prompt, temperature=0.2)
                 )
 
-                risposta_ia = res.text
+                costo_atto = 0.0
+                if hasattr(res, 'usage_metadata') and res.usage_metadata:
+                    t_in = res.usage_metadata.prompt_token_count or 0
+                    t_out = res.usage_metadata.candidates_token_count or 0
+                    st.session_state.sess_token_in += t_in
+                    st.session_state.sess_token_out += t_out
+                    costo_atto = (t_in / 1_000_000.0) * DEFAULT_COST_INPUT_1M_EUR + (t_out / 1_000_000.0) * DEFAULT_COST_OUTPUT_1M_EUR
+                    st.session_state.sess_costo_eur += costo_atto
+
+                risposta_ia = res.text + f"\n\n[💶 Spesa API per questo atto: {costo_atto:.5f} €]"
+                
                 st.markdown(risposta_ia)
                 st.session_state.storico_chat.append({"role": "assistant", "content": risposta_ia})
 
