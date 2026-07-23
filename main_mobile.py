@@ -34,41 +34,60 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Stile CSS personalizzato con classi separate per P.E.F. (verde) e P.G. (blu) e dimensioni uniformi
+# Stile CSS completo con sfondi bianchi per password/API e layout simmetrico
 st.markdown("""
     <style>
-    .main { background-color: #0d1117; color: #ffffff; }
-    .stTextInput > div > div > input { background-color: #1f242c; color: #ffffff; }
-    .stSelectbox > div > div > select { background-color: #1f242c; color: #ffffff; }
+    .main { background-color: #f8f9fa; color: #212529; }
     
-    /* Pulsante PEF (Verde) - Larghezza e altezza uniformi */
+    /* SFONDO BIANCO PER TUTTI I CAMPI DI INPUT (Password, API Key, Testi) */
+    .stTextInput input, div[data-baseweb="input"] input, .stPassword input {
+        background-color: #ffffff !important; 
+        color: #212529 !important; 
+        border: 1px solid #ced4da !important;
+        border-radius: 6px !important;
+    }
+    
+    /* Sfondo bianco anche per i menu a tendina (selectbox) */
+    .stSelectbox select, div[data-baseweb="select"] {
+        background-color: #ffffff !important; 
+        color: #212529 !important; 
+    }
+    
+    /* Forzatura larghezza simmetrica al 50% per le colonne dei pulsanti reparto */
+    [data-testid="column"] {
+        width: 50% !important;
+        flex: 1 1 50% !important;
+        min-width: 50% !important;
+    }
+
+    /* Pulsante PEF (Verde) - Uniforme */
     div.row-widget.stButton:nth-of-type(1) button {
-        background-color: #161b22; 
-        color: #00E676; 
+        background-color: #ffffff; 
+        color: #00875A; 
         font-weight: bold; 
-        border: 2px solid #00E676; 
-        width: 100%;
-        height: 110px;
+        border: 2px solid #00875A; 
+        width: 100% !important;
+        height: 120px;
         border-radius: 8px;
     }
     div.row-widget.stButton:nth-of-type(1) button:hover {
-        background-color: #00E676; 
-        color: #0d1117;
+        background-color: #00875A; 
+        color: #ffffff;
     }
 
-    /* Pulsante PG (Blu) - Larghezza e altezza uniformi */
+    /* Pulsante PG (Blu) - Uniforme */
     div.row-widget.stButton:nth-of-type(2) button {
-        background-color: #161b22; 
-        color: #61afef; 
+        background-color: #ffffff; 
+        color: #0d6efd; 
         font-weight: bold; 
-        border: 2px solid #61afef; 
-        width: 100%;
-        height: 110px;
+        border: 2px solid #0d6efd; 
+        width: 100% !important;
+        height: 120px;
         border-radius: 8px;
     }
     div.row-widget.stButton:nth-of-type(2) button:hover {
-        background-color: #61afef; 
-        color: #0d1117;
+        background-color: #0d6efd; 
+        color: #ffffff;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -95,8 +114,8 @@ if "spesa_tot_eur" not in st.session_state:
 
 # 1️⃣ SCHERMATA LOGIN
 if not st.session_state.autenticato:
-    st.markdown("<h2 style='text-align: center; color: #FFD700;'>🔒 SISTEMA CRITTOGRAFATO</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #8b949e;'>Inserire la password di sblocco per accedere:</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #d4af37;'>🔒 SISTEMA CRITTOGRAFATO</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #6c757d;'>Inserire la password di sblocco per accedere:</p>", unsafe_allow_html=True)
     
     with st.form("form_login"):
         pwd_input = st.text_input("Password:", type="password")
@@ -112,7 +131,7 @@ if not st.session_state.autenticato:
 
 # 2️⃣ DISCIPLINARE DI SICUREZZA & PRIVACY OBBLIGATORIO
 if not st.session_state.privacy_accettata:
-    st.markdown("<h3 style='color: #FFD700;'>🛡️ DISCIPLINARE DI SICUREZZA, PRIVACY & INTEGRITÀ DATI</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #d4af37;'>🛡️ DISCIPLINARE DI SICUREZZA, PRIVACY & INTEGRITÀ DATI</h3>", unsafe_allow_html=True)
     
     st.info(
         "In conformità alle normative vigenti in materia di sicurezza informatica, tutela del "
@@ -141,8 +160,8 @@ if not st.session_state.privacy_accettata:
 
 # 3️⃣ SELEZIONE REPARTO
 if "reparto_scelto" not in st.session_state:
-    st.markdown("<h2 style='text-align: center; color: #FFD700;'>🏢 SELEZIONA AMBITO D'INDAGINE</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #8b949e;'>Scegli la modalità di specializzazione operativa dell'IA:</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #d4af37;'>🏢 SELEZIONA AMBITO D'INDAGINE</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #6c757d;'>Scegli la modalità di specializzazione operativa dell'IA:</p>", unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns(2, gap="medium")
@@ -166,11 +185,11 @@ if "reparto_scelto" not in st.session_state:
 # ==========================================
 col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
 with col_logo2:
-    colore_titolo = "#00E676" if st.session_state.modalita == "PEF" else "#61afef"
-    st.markdown(f"<h3 style='text-align: center; color: {colore_titolo};'>Maresc<span style='color: #FFD700;'>[İA]</span>llo</h3>", unsafe_allow_html=True)
+    colore_titolo = "#00875A" if st.session_state.modalita == "PEF" else "#0d6efd"
+    st.markdown(f"<h3 style='text-align: center; color: {colore_titolo};'>Maresc<span style='color: #d4af37;'>[İA]</span>llo</h3>", unsafe_allow_html=True)
 
 sottotitolo_m = "Unità Investigativa - Polizia Economico-Finanziaria (P.E.F.)" if st.session_state.modalita == "PEF" else "Unità Investigativa - Polizia Giudiziaria (P.G.)"
-st.markdown(f"<p style='text-align: center; font-size: 0.85em; color: #8b949e;'>{sottotitolo_m}</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align: center; font-size: 0.85em; color: #6c757d;'>{sottotitolo_m}</p>", unsafe_allow_html=True)
 
 # SIDEBAR MOBILE
 with st.sidebar:
