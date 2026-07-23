@@ -34,15 +34,42 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Stile CSS personalizzato per tema scuro istituzionale
+# Stile CSS personalizzato con classi separate per P.E.F. (verde) e P.G. (blu) e dimensioni uniformi
 st.markdown("""
     <style>
     .main { background-color: #0d1117; color: #ffffff; }
     .stTextInput > div > div > input { background-color: #1f242c; color: #ffffff; }
     .stSelectbox > div > div > select { background-color: #1f242c; color: #ffffff; }
-    div.stButton > button { background-color: #2d3748; color: #00E676; font-weight: bold; border: 1px solid #00E676; width: 100%; }
-    div.stButton > button:hover { background-color: #00E676; color: #0d1117; }
-    .css-1544g2u { background-color: #161b22; }
+    
+    /* Pulsante PEF (Verde) - Larghezza e altezza uniformi */
+    div.row-widget.stButton:nth-of-type(1) button {
+        background-color: #161b22; 
+        color: #00E676; 
+        font-weight: bold; 
+        border: 2px solid #00E676; 
+        width: 100%;
+        height: 110px;
+        border-radius: 8px;
+    }
+    div.row-widget.stButton:nth-of-type(1) button:hover {
+        background-color: #00E676; 
+        color: #0d1117;
+    }
+
+    /* Pulsante PG (Blu) - Larghezza e altezza uniformi */
+    div.row-widget.stButton:nth-of-type(2) button {
+        background-color: #161b22; 
+        color: #61afef; 
+        font-weight: bold; 
+        border: 2px solid #61afef; 
+        width: 100%;
+        height: 110px;
+        border-radius: 8px;
+    }
+    div.row-widget.stButton:nth-of-type(2) button:hover {
+        background-color: #61afef; 
+        color: #0d1117;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -112,19 +139,22 @@ if not st.session_state.privacy_accettata:
     st.stop()
 
 
-# 3️⃣ SELEZIONE REPARTO (SE NON ANCORA SCELTO O TRAMITE RESET)
+# 3️⃣ SELEZIONE REPARTO
 if "reparto_scelto" not in st.session_state:
     st.markdown("<h2 style='text-align: center; color: #FFD700;'>🏢 SELEZIONA AMBITO D'INDAGINE</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #8b949e;'>Scegli la modalità di specializzazione operativa dell'IA:</p>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2, gap="medium")
+    
     with col1:
-        if st.button("🟡 P.E.F.\n\nPolizia Economico-Finanziaria\n(Frodi IVA & D.Lgs. 74/2000)"):
+        if st.button("🟡 P.E.F.\n\nPolizia Economico-Finanziaria\n(Frodi IVA & D.Lgs. 74/2000)", key="btn_pef"):
             st.session_state.modalita = "PEF"
             st.session_state.reparto_scelto = True
             st.rerun()
+            
     with col2:
-        if st.button("🔵 P.G.\n\nPolizia Giudiziaria\n(Codice Penale & c.p.p.)"):
+        if st.button("🔵 P.G.\n\nPolizia Giudiziaria\n(Codice Penale & c.p.p.)", key="btn_pg"):
             st.session_state.modalita = "PG"
             st.session_state.reparto_scelto = True
             st.rerun()
