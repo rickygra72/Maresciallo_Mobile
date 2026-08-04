@@ -16,8 +16,20 @@ except ImportError:
 
 try:
     from docx import Document
+    from docx.shared import Pt, RGBColor
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
 except ImportError:
     Document = None
+
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    HAS_REPORTLAB = True
+except ImportError:
+    HAS_REPORTLAB = False
 
 # Configurazione Pagina Streamlit
 st.set_page_config(
@@ -27,7 +39,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Stile CSS personalizzato per la plancia mobile
+# Stile CSS personalizzato per la plancia mobile e chiarezza visiva
 st.markdown("""
     <style>
     .stApp { background-color: #0d1117; color: #ffffff; }
@@ -35,6 +47,7 @@ st.markdown("""
     h1, h2, h3 { color: #FFD700 !important; }
     .stButton>button { width: 100%; border-radius: 4px; font-weight: bold; background-color: #2d3748; color: #ffffff; border: 1px solid #4a5568; }
     .stButton>button:hover { background-color: #00E676; color: #0d1117; border: 1px solid #00E676; }
+    .chat-box { background-color: #161b22; padding: 15px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -42,7 +55,7 @@ PASSWORD_APPLICATIVO = "GdiF_117"
 DEFAULT_COST_INPUT_1M_EUR = 0.069
 DEFAULT_COST_OUTPUT_1M_EUR = 0.276
 
-# Gestione Autenticazione con campo password ben visibile
+# Gestione Autenticazione con campo password
 if "autenticato" not in st.session_state:
     st.session_state.autenticato = False
 
@@ -107,6 +120,63 @@ with st.sidebar:
             st.warning("⚠️ Rilevate immagini/scansioni: l'elaborazione visiva (OCR) inciderà sui token.")
 
     st.markdown("---")
+    st.markdown("### 🖨️ ESPORTAZIONE ATTI")
+    
+    # Funzione di esportazione Word integrata
+    def genera_docx():
+        if not st.session_state.storico_chat or not Document: return None
+        doc = Document()
+        doc.styles['Normal'].font.name = 'Arial'
+        doc.styles['Normal'].font.size = Pt(10)
+        titolo_rep = "RELAZIONE DI ANALISI ISPETTIVA (P.E.F.)" if modalita == "PEF" else "ANNOTAZIONE DI POLIZIA GIUDIZIARIA (P.G.)"
+        doc.add_heading(titolo_rep, level=1)
+        
+        for m in st.session_state.storico_chat:
+            if m['role'] == 'assistant':
+                doc.add_paragraph(m['content'])
+                doc.add_paragraph("-" * 40)
+        
+        temp_path = "relazione_maresciallo.docx"
+        doc.save(temp_path)
+        return temp_path
+
+    # Funzione di esportazione PDF integrata
+    def genera_pdf():
+        if not st.session_state.storico_chat or not HAS_REPORTLAB: return None
+        temp_path = "relazione_maresciallo.pdf"
+        doc = SimpleDocTemplate(temp_path, pagesize=letter, rightMargin=20, leftMargin=20, topMargin=30, bottomMargin=30)
+        styles = getSampleStyleSheet()
+        style_titolo = ParagraphStyle('TitoloReport', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=12, spaceAfter=12, alignment=1)
+        style_testo = ParagraphStyle('TestoReport', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10)
+        
+        titolo_atto = "RELAZIONE TECNICA ISPETTIVA DI VERIFICA (P.E.F.)" if modalita == "PEF" else "ANNOTAZIONE DI POLIZIA GIUDIZIARIA (P.G.)"
+        story = [Paragraph(titolo_atto, style_titolo), Spacer(1, 8)]
+        
+        for m in st.session_state.storico_chat:
+            if m['role'] == 'assistant':
+                righe = m['content'].split('\n')
+                for riga in righe:
+                    if riga.strip():
+                        story.append(Paragraph(riga.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), style_testo))
+                story.append(Spacer(1, 10))
+                
+        doc.build(story)
+        return temp_path
+
+    if st.session_state.storico_chat:
+        col_exp1, col_exp2 = st.columns(2)
+        with col_exp1:
+            path_d = genera_docx()
+            if path_d:
+                with open(path_d, "rb") as f:
+                    st.download_button("📥 Word (.docx)", f, file_name="Relazione_Maresciallo.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        with col_exp2:
+            path_p = genera_pdf()
+            if path_p:
+                with open(path_p, "rb") as f:
+                    st.download_button("📥 PDF Formale", f, file_name="Relazione_Maresciallo.pdf", mime="application/pdf")
+
+    st.markdown("---")
     st.markdown("### 💶 CONSUMI SESSIONE")
     tot_token = st.session_state.sess_token_in + st.session_state.sess_token_out
     st.info(f"• Token Elaborati: {tot_token:,}\n• Spesa Stimata: {st.session_state.sess_costo_eur:.4f} €")
@@ -124,10 +194,10 @@ titolo_plancia = "Polizia Economico-Finanziaria (P.E.F.)" if modalita == "PEF" e
 st.markdown(f"## 🛡️ Unità Investigativa - {titolo_plancia}")
 st.markdown("<div style='font-size: 0.9em; color: #8b949e; margin-bottom: 15px;'>Protocollo di analisi forense, riscontro contabile e accertamenti bancari attivo.</div>", unsafe_allow_html=True)
 
-# Visualizzazione Storico Chat
+# Visualizzazione Storico Chat con box definiti per evitare confusione visiva
 for msg in st.session_state.storico_chat:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        st.markdown(f"<div class='chat-box'>{msg['content']}</div>", unsafe_allow_html=True)
 
 # Input Utente
 prompt_utente = st.chat_input("Inserisci il quesito o l'atto da esaminare...")
@@ -253,7 +323,7 @@ if prompt_utente:
 
                 risposta_ia = res.text + f"\n\n[💶 Spesa API per questo atto: {costo_atto:.5f} €]"
                 
-                st.markdown(risposta_ia)
+                st.markdown(f"<div class='chat-box'>{risposta_ia}</div>", unsafe_allow_html=True)
                 st.session_state.storico_chat.append({"role": "assistant", "content": risposta_ia})
 
             except Exception as e:
