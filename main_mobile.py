@@ -77,7 +77,6 @@ if "sess_costo_eur" not in st.session_state:
 with st.sidebar:
     st.markdown("### 🛡️ Maresciallo AI [Mobile]")
     
-    # Selezione Reparto (PEF / PG)
     modalita = st.selectbox(
         "🏢 Reparto Operativo:",
         options=["PEF", "PG"],
