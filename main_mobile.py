@@ -16,17 +16,14 @@ except ImportError:
 
 try:
     from docx import Document
-    from docx.shared import Pt, RGBColor
-    from docx.oxml import OxmlElement
-    from docx.oxml.ns import qn
 except ImportError:
     Document = None
 
 try:
+    import reportlab
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib import colors
     HAS_REPORTLAB = True
 except ImportError:
     HAS_REPORTLAB = False
@@ -38,18 +35,6 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="expanded"
 )
-
-# Stile CSS personalizzato per la plancia mobile e chiarezza visiva
-st.markdown("""
-    <style>
-    .stApp { background-color: #0d1117; color: #ffffff; }
-    .sidebar .stSidebar { background-color: #161b22; }
-    h1, h2, h3 { color: #FFD700 !important; }
-    .stButton>button { width: 100%; border-radius: 4px; font-weight: bold; background-color: #2d3748; color: #ffffff; border: 1px solid #4a5568; }
-    .stButton>button:hover { background-color: #00E676; color: #0d1117; border: 1px solid #00E676; }
-    .chat-box { background-color: #161b22; padding: 15px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 10px; }
-    </style>
-""", unsafe_allow_html=True)
 
 PASSWORD_APPLICATIVO = "GdiF_117"
 DEFAULT_COST_INPUT_1M_EUR = 0.069
@@ -122,59 +107,44 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🖨️ ESPORTAZIONE ATTI")
     
-    # Funzione di esportazione Word integrata
-    def genera_docx():
-        if not st.session_state.storico_chat or not Document: return None
-        doc = Document()
-        doc.styles['Normal'].font.name = 'Arial'
-        doc.styles['Normal'].font.size = Pt(10)
-        titolo_rep = "RELAZIONE DI ANALISI ISPETTIVA (P.E.F.)" if modalita == "PEF" else "ANNOTAZIONE DI POLIZIA GIUDIZIARIA (P.G.)"
-        doc.add_heading(titolo_rep, level=1)
-        
-        for m in st.session_state.storico_chat:
-            if m['role'] == 'assistant':
-                doc.add_paragraph(m['content'])
-                doc.add_paragraph("-" * 40)
-        
-        temp_path = "relazione_maresciallo.docx"
-        doc.save(temp_path)
-        return temp_path
+    # Sezione Download sempre attiva se c'è almeno un messaggio nello storico
+    if len(st.session_state.storico_chat) > 0:
+        # Generazione Word in memoria per il download
+        if Document:
+            doc = Document()
+            doc.styles['Normal'].font.name = 'Arial'
+            titolo_rep = "RELAZIONE DI ANALISI ISPETTIVA (P.E.F.)" if modalita == "PEF" else "ANNOTAZIONE DI POLIZIA GIUDIZIARIA (P.G.)"
+            doc.add_heading(titolo_rep, level=1)
+            for m in st.session_state.storico_chat:
+                if m['role'] == 'assistant':
+                    doc.add_paragraph(m['content'])
+                    doc.add_paragraph("-" * 40)
+            
+            doc_path = "relazione_maresciallo.docx"
+            doc.save(doc_path)
+            with open(doc_path, "rb") as f_docx:
+                st.download_button("📥 Scarica Word (.docx)", f_docx, file_name="Relazione_Maresciallo.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
-    # Funzione di esportazione PDF integrata
-    def genera_pdf():
-        if not st.session_state.storico_chat or not HAS_REPORTLAB: return None
-        temp_path = "relazione_maresciallo.pdf"
-        doc = SimpleDocTemplate(temp_path, pagesize=letter, rightMargin=20, leftMargin=20, topMargin=30, bottomMargin=30)
-        styles = getSampleStyleSheet()
-        style_titolo = ParagraphStyle('TitoloReport', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=12, spaceAfter=12, alignment=1)
-        style_testo = ParagraphStyle('TestoReport', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10)
-        
-        titolo_atto = "RELAZIONE TECNICA ISPETTIVA DI VERIFICA (P.E.F.)" if modalita == "PEF" else "ANNOTAZIONE DI POLIZIA GIUDIZIARIA (P.G.)"
-        story = [Paragraph(titolo_atto, style_titolo), Spacer(1, 8)]
-        
-        for m in st.session_state.storico_chat:
-            if m['role'] == 'assistant':
-                righe = m['content'].split('\n')
-                for riga in righe:
-                    if riga.strip():
-                        story.append(Paragraph(riga.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), style_testo))
-                story.append(Spacer(1, 10))
-                
-        doc.build(story)
-        return temp_path
-
-    if st.session_state.storico_chat:
-        col_exp1, col_exp2 = st.columns(2)
-        with col_exp1:
-            path_d = genera_docx()
-            if path_d:
-                with open(path_d, "rb") as f:
-                    st.download_button("📥 Word (.docx)", f, file_name="Relazione_Maresciallo.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        with col_exp2:
-            path_p = genera_pdf()
-            if path_p:
-                with open(path_p, "rb") as f:
-                    st.download_button("📥 PDF Formale", f, file_name="Relazione_Maresciallo.pdf", mime="application/pdf")
+        # Generazione PDF in memoria per il download
+        if HAS_REPORTLAB:
+            pdf_path = "relazione_maresciallo.pdf"
+            pdf_doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=20, leftMargin=20, topMargin=30, bottomMargin=30)
+            styles = getSampleStyleSheet()
+            style_testo = ParagraphStyle('TestoReport', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10)
+            
+            story = [Paragraph("RELAZIONE TECNICA ISPETTIVA", styles['Heading1']), Spacer(1, 8)]
+            for m in st.session_state.storico_chat:
+                if m['role'] == 'assistant':
+                    for riga in m['content'].split('\n'):
+                        if riga.strip():
+                            story.append(Paragraph(riga.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), style_testo))
+                    story.append(Spacer(1, 10))
+            pdf_doc.build(story)
+            
+            with open(pdf_path, "rb") as f_pdf:
+                st.download_button("📥 Scarica PDF Formale", f_pdf, file_name="Relazione_Maresciallo.pdf", mime="application/pdf")
+    else:
+        st.caption("I pulsanti di download compariranno qui non appena l'IA avrà prodotto la prima risposta.")
 
     st.markdown("---")
     st.markdown("### 💶 CONSUMI SESSIONE")
@@ -194,10 +164,10 @@ titolo_plancia = "Polizia Economico-Finanziaria (P.E.F.)" if modalita == "PEF" e
 st.markdown(f"## 🛡️ Unità Investigativa - {titolo_plancia}")
 st.markdown("<div style='font-size: 0.9em; color: #8b949e; margin-bottom: 15px;'>Protocollo di analisi forense, riscontro contabile e accertamenti bancari attivo.</div>", unsafe_allow_html=True)
 
-# Visualizzazione Storico Chat con box definiti per evitare confusione visiva
+# Visualizzazione nativa e pulita dello storico chat (usa i componenti standard di Streamlit per la massima leggibilità)
 for msg in st.session_state.storico_chat:
     with st.chat_message(msg["role"]):
-        st.markdown(f"<div class='chat-box'>{msg['content']}</div>", unsafe_allow_html=True)
+        st.markdown(msg["content"])
 
 # Input Utente
 prompt_utente = st.chat_input("Inserisci il quesito o l'atto da esaminare...")
@@ -323,8 +293,9 @@ if prompt_utente:
 
                 risposta_ia = res.text + f"\n\n[💶 Spesa API per questo atto: {costo_atto:.5f} €]"
                 
-                st.markdown(f"<div class='chat-box'>{risposta_ia}</div>", unsafe_allow_html=True)
+                st.markdown(risposta_ia)
                 st.session_state.storico_chat.append({"role": "assistant", "content": risposta_ia})
+                st.rerun()
 
             except Exception as e:
                 st.error(f"⚠️ Errore durante l'elaborazione: {str(e)}")
